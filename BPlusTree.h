@@ -32,6 +32,10 @@ public:
 
     virtual auto split()->shared_ptr<BaseNode> = 0;//说明是纯虚函数，派生类必须提供实现，否则不能被实例化
 
+    virtual void merge(shared_ptr<BaseNode> other) = 0;
+
+    auto insert(shared_ptr<BaseNode> root,int key,int value)->shared_ptr<BaseNode>;
+
 //    virtual void update_after_split(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> left,shared_ptr<BaseNode> right) = 0;
 };
 
@@ -47,16 +51,22 @@ public:
     void update_after_split(shared_ptr<InternalNode> parent,int pos,shared_ptr<BaseNode> left,shared_ptr<BaseNode> right);
 
     auto get_pointers()->vector<shared_ptr<BaseNode>>&;
+
+    void merge(shared_ptr<BaseNode> other);
 };
 
-class LeafNode :public BaseNode{
+class LeafNode :public BaseNode,public enable_shared_from_this<LeafNode>{
 private:
     vector<int> data;
 public:
+    shared_ptr<LeafNode> prev = nullptr;
+    shared_ptr<LeafNode> next = nullptr;
     explicit LeafNode(int max_size);
     auto split()->shared_ptr<BaseNode>;
 //    void update_after_split(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> left,shared_ptr<BaseNode> right);
     auto get_data()->vector<int>&;
+
+    void merge(shared_ptr<BaseNode> other);
 };
 
 class BPlusTree{
