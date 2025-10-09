@@ -90,19 +90,19 @@ shared_ptr<BaseNode> InternalNode::split() {
     //1 移动数据
     //2 移动指针
     //3 修改元素个数
-    int move_num = this->size_ -  this->size_/2;
+    int move_num = this->size_/2;
 
     vector<int>& new_child_keys = new_child->get_keys();
     for(int idx=0;idx<move_num;idx++){
-        new_child_keys[idx] = this->keys[idx+this->size_/2];
+        new_child_keys[idx] = this->keys[idx+this->size_/2+1];
     }
 
     vector<shared_ptr<BaseNode>>& pointers = new_child->get_pointers();
     for(int idx=0;idx<=move_num;idx++){//指针比关键集大一
-        pointers[idx] = this->children[idx+this->size_/2];
+        pointers[idx] = this->children[idx+this->size_/2+1];
     }
 
-    this->set_size_(this->size_- move_num);
+    this->set_size_(move_num);//delete middle key
     new_child->set_size_(move_num);
 
     return new_child;
@@ -112,21 +112,222 @@ shared_ptr<BaseNode> InternalNode::split() {
  * 必要时合并两颗子树
  * @return
  */
-void InternalNode::merge(shared_ptr<BaseNode> other) {
+void InternalNode::merge(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> other) {
     //1移动关键字
     //2移动指针
     //3修改本对象的关键字数量
+    //4紧凑父节点
     //  [0][1]        [0][1]
     // [0][1][2]     [0][1][2]
     auto other_raw = dynamic_pointer_cast<InternalNode>(other);
     auto num1 = this->get_size_();
-    auto num2 = other->get_size_();
+    auto num2 = other_raw->get_size_();
+    this->keys[this->get_size_()] = parent->get_keys()[pos];
 
+    auto& keys = other->get_keys();
+    for(int idx = 0;idx<num2;idx++){
+        this->keys[num1+1+idx] = keys[idx];
+    }
+
+    auto& pointers = other_raw->get_pointers();
+
+    for(int idx=0;idx<=num2;idx++){//
+        this->children[num1+1+idx] = pointers[idx];
+    }
+
+    this->set_size_(num1+num2+1);
+
+    //紧凑父节点
+    //移动key以及pointers
+    //modify size
+    auto parent_real = dynamic_pointer_cast<InternalNode>(parent);
+    auto& pkeys = parent_real->get_keys();
+    auto& ppointers = parent_real->get_pointers();
+    for(int idx = pos;idx<parent_real->get_size_()-1;idx++){
+        pkeys[idx] = pkeys[idx+1];
+    }
+    for(int idx=pos+1;idx<parent_real->get_size_();idx++){
+        ppointers[idx] = ppointers[idx+1];
+    }
+    parent->decl();
+}
+
+/**
+ *
+ * @param parent
+ * @param pos
+ * @param lsibling
+ */
+void InternalNode::borrow_from_left_sibling(shared_ptr<BaseNode> parent, int pos, shared_ptr<BaseNode> lsibling) {
+    //本节点空出关键字以及指针位置
+    //父节点关键字下降
+    //左兄弟最右关键字上升
+    //左兄弟最右关键字的右边kid也需要转移
+    //调整元素个数
+
+    auto lsibling_real = dynamic_pointer_cast<InternalNode>(lsibling);
+
+    for(int idx = this->get_size_();idx>0;idx--){
+        this->keys[idx] = this->keys[idx-1];
+    }
+    for(int idx = this->get_size_()+1;idx>0;idx--){
+        this->children[idx] = this->children[idx-1];
+    }
+
+    auto& pkeys = parent->get_keys();
+    this->keys[0] = pkeys[pos];
+
+    auto& lkeys = lsibling_real->get_keys();
+    pkeys[pos] = lkeys[lsibling_real->get_size_()-1];
+
+    auto& pointers = lsibling_real->get_pointers();
+
+    this->children[0] = pointers[lsibling_real->get_size_()];
+
+    //调整元素个数
+    this->incr();//
+    lsibling->decl();
+}
+
+/**
+ *
+ * @param parent
+ * @param pos
+ * @param rsibling
+ */
+void InternalNode::borrow_from_right_sibling(shared_ptr<BaseNode> parent, int pos, shared_ptr<BaseNode> rsibling) {
+    //父节点关键字下降
+    //右兄弟最左关键字上升
+    //右兄弟最左关键字的左边kid也需要转移
+    //右兄弟的数组紧凑一波
+    //调整元素个数
+
+    auto rsibling_real = dynamic_pointer_cast<InternalNode>(rsibling);
+
+    auto& pkeys = parent->get_keys();
+    this->keys[this->get_size_()] = pkeys[pos];
+
+    auto& rkeys = rsibling_real->get_keys();
+    pkeys[pos] = rkeys[0];
+
+    auto& pointers = rsibling_real->get_pointers();
+
+    this->children[this->get_size_()+1] = pointers[0];
+
+    for(int idx = 0;idx<rsibling_real->get_size_()-1;idx++){
+        this->keys[idx] = this->keys[idx+1];
+    }
+    for(int idx = 0;idx<=rsibling_real->get_size_()-1;idx++){
+        this->children[idx] = this->children[idx+1];
+    }
+
+    //调整元素个数
+    this->incr();//
+    rsibling->decl();
+}
+
+/**
+ * 叶子节点的merge
+ * 不依赖父节点的sep key
+ * @param parent
+ * @param pos
+ * @param other 右边的节点
+ */
+void LeafNode::merge(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> other) {
+    //1 移动keys
+    //2 移动数据
+    //3 modify当前元素数量
+
+    auto other_raw = dynamic_pointer_cast<LeafNode>(other);
+    auto num1 = this->get_size_();
+    auto num2 = other->get_size_();
+    //this->keys[this->get_size_()] = parent->get_keys()[pos];
+
+    auto& keys = other_raw->get_keys();
+    for(int idx = 0;idx<num2;idx++){
+        this->keys[num1+idx] = keys[idx];
+    }
+
+    auto& data = other_raw->get_data();
+    for(int idx=0;idx<num2;idx++){
+        this->data[num1+idx] = data[idx];
+    }
+
+    this->set_size_(num1+num2);
+
+
+    //紧凑父节点
+    //移动数据以及指针
+    //modify size
+    auto parent_real = dynamic_pointer_cast<InternalNode>(parent);
+    auto& pkeys = parent_real->get_keys();
+    auto& ppointers = parent_real->get_pointers();
+    for(int idx = pos;idx<parent_real->get_size_()-1;idx++){
+        pkeys[idx] = pkeys[idx+1];
+    }
+    for(int idx = pos+1;idx<parent_real->get_size_();idx++){
+        ppointers[idx] = ppointers[idx+1];
+    }
+    parent_real->decl();
 }
 
 
-void LeafNode::merge(shared_ptr<BaseNode> other) {
+void LeafNode::borrow_from_left_sibling(shared_ptr<BaseNode> parent, int pos, shared_ptr<BaseNode> lsibling) {
+    //本节点空出关键字以及指针位置
+    //父节点关键字下降
+    //左兄弟最右关键字上升
+    //左兄弟最右关键字的右边kid也需要转移
+    //调整元素个数
 
+    auto lsibling_real = dynamic_pointer_cast<LeafNode>(lsibling);
+
+    for(int idx = this->get_size_();idx>0;idx--){
+        this->keys[idx] = this->keys[idx-1];
+    }
+    for(int idx = this->get_size_();idx>0;idx--){
+        this->data[idx] = this->data[idx-1];
+    }
+
+    auto& lkeys = lsibling_real->get_keys();
+    this->keys[0] = lkeys[lsibling_real->get_size_()-1];
+
+    auto& ldata = lsibling_real->get_data();
+    this->data[0] = ldata[lsibling_real->get_size_()-1];
+
+    auto& pkeys = parent->get_keys();
+    pkeys[pos] = this->keys[0];
+
+    //调整元素个数
+    this->incr();//
+    lsibling->decl();
+}
+
+void LeafNode::borrow_from_right_sibling(shared_ptr<BaseNode> parent, int pos, shared_ptr<BaseNode> rsibling) {
+    //本节点空出关键字以及指针位置
+    //父节点关键字下降
+    //左兄弟最右关键字上升
+    //左兄弟最右关键字的右边kid也需要转移
+    //调整元素个数
+
+    auto rsibling_real = dynamic_pointer_cast<LeafNode>(rsibling);
+
+    auto& rkeys = rsibling_real->get_keys();
+    this->keys[this->get_size_()-1] = rkeys[0];
+
+    auto& rdata = rsibling_real->get_data();
+    this->data[this->get_size_()-1] = rdata[0];
+
+    for(int idx = 0;idx<rsibling_real->get_size_()-1;idx++){
+        rkeys[idx] = rkeys[idx+1];
+        rdata[idx] = rdata[idx+1];
+    }
+
+    auto& pkeys = parent->get_keys();
+    pkeys[pos] = rkeys[0];
+
+    //调整元素个数
+    this->incr();//
+    rsibling->decl();
 }
 
 /**
@@ -215,6 +416,9 @@ void BPlusTree::insert_nofull(shared_ptr<BaseNode> root,int key,int value){
             keys[pos] = keys[pos-1];
             pos-=1;
         }
+        if(keys[pos-1]==key){//不允许duplicated key
+            return;
+        }
         keys[pos] = key;
         vector<int>& data = root_leaf->get_data();
         data[pos] = value;
@@ -247,10 +451,10 @@ void BPlusTree::insert(int key, int value) {
         return;
     }
     //满了
-    cout<<"insert. before root size is "<<this->root->get_size_()<<endl;
+//    cout<<"insert. before root size is "<<this->root->get_size_()<<endl;
     if(this->root->get_size_()==DEGREE-1){//
         //如果是叶子节点
-        cout<<"触发分裂，增长树高"<<endl;
+//        cout<<"触发分裂，增长树高"<<endl;
         auto new_parent = make_shared<InternalNode>(BPlusTree::DEGREE-1);
         auto new_child = this->root->split();
         new_parent->update_after_split(new_parent,0,this->root,new_child);
@@ -261,6 +465,83 @@ void BPlusTree::insert(int key, int value) {
         //需要返回什么吗？
     }
 }
+
+/**
+ *
+ * @param list
+ * @param target
+ * @param left
+ * @param right
+ * @return 若是列表中最小的，return -1 else >= first element
+ */
+int BPlusTree::index_(vector<int>& list,int target,int left,int right){
+    int candidate = -1;
+    while(left<=right){
+        int mid = (left+right>>1);
+        if(target>=list[mid]){
+            candidate = mid;
+            left = mid+1;
+        }else{
+            right = mid-1;
+        }
+    }
+    return candidate;
+}
+
+/**
+ *
+ * @param root
+ * @param key
+ */
+void BPlusTree::remove_recursively(shared_ptr<BaseNode> root,int key){
+    if(root->is_leaf()){
+        auto root_raw = dynamic_pointer_cast<LeafNode>(root);
+        auto& keys = root_raw->get_keys();
+        auto& data = root_raw->get_data();
+        int target = this->index_(keys,key,0,root_raw->get_size_()-1);
+        if(keys[target]==key){
+            cout<<"[Remove]: Remove "<<key<<" successfully."<<endl;
+            for(int idx = target;idx<root_raw->get_size_()-1;idx++){
+                keys[idx] = keys[idx+1];
+                data[idx] = data[idx+1];
+            }
+            root_raw->decl();//
+        }else{
+            cout<<"[Remove]:key "<<key<<" does not exist."<<endl;
+        }
+    }else{
+        auto root_raw = dynamic_pointer_cast<InternalNode>(root);
+        auto& keys = root_raw->get_keys();
+        auto& pointers = root_raw->get_pointers();
+        int middle = index_(keys,key,0,root_raw->get_size_()-1);
+
+        shared_ptr<BaseNode> left_kid,target_kid,right_kid;
+
+        target_kid = pointers[middle+1];
+        left_kid = middle>=0?pointers[middle]: nullptr;
+        right_kid = middle+2<=root_raw->get_size_()?pointers[middle+2]: nullptr;
+
+        if(target_kid->get_size_()==(BPlusTree::DEGREE-1)/2){//元素个数不够，需要避免remove处于非法状态
+            if(left_kid != nullptr && left_kid->get_size_()>(BPlusTree::DEGREE-1)/2){//借取左兄弟的元素
+                target_kid->borrow_from_left_sibling(root,middle,left_kid);
+            }else if(right_kid != nullptr && right_kid->get_size_()>(BPlusTree::DEGREE-1)/2){//借去右兄弟的元素
+                target_kid->borrow_from_right_sibling(root,middle,right_kid);
+            }else if(left_kid!= nullptr){//和左兄弟合并，左兄弟不一定有的吧
+                left_kid->merge(root,middle,target_kid);
+            }else{//和右兄弟合并
+                target_kid->merge(root,middle,right_kid);
+            }
+            //调整完的目标
+            int middle_ = index_(keys,key,0,root_raw->get_size_()-1);
+            //继续递归删除
+            this->remove_recursively(pointers[middle_+1],key);
+        }else{//元素个数足够，直接递归删除
+            this->remove_recursively(target_kid,key);
+        }
+
+    }
+}
+
 /**
  * 删除B+树的关键字
  * B+树的删除情况比B树少一种
@@ -275,8 +556,14 @@ void BPlusTree::remove(int key){//为什么有必要进行特殊处理？因为�
 
         if(left != nullptr && right!= nullptr && left->get_size_()==(DEGREE-1)/2 && right->get_size_()==(DEGREE-1)/2){
             //合并两颗子树
+            left->merge(this->root,0,right);
+            this->root = left;//replace root-node pointer
+            this->remove_recursively(left,key);
+        }else{
+            this->remove_recursively(this->root,key);
         }
-
+    }else{
+        this->remove_recursively(this->root,key);
     }
 }
 
@@ -374,21 +661,51 @@ BPlusTree::BPlusTree(int degree){
 
 //决定了，插入使用提前避免的方式实现，删除使用递归回溯的方式实现
 //烦死了，还是不要害怕递归的好呀。
+//
+
+
+void benchmark(){
+    int size = 40;
+    BPlusTree bPlusTree(4);//最多四个关键字
+    for(int idx=0;idx<size;idx++){
+        bPlusTree.insert(idx,idx/10);
+    }
+    bPlusTree.level_print();
+
+//    for(int idx=size/2;idx<size;idx++){
+//        bPlusTree.remove(idx);
+//    }
+//    bPlusTree.level_print();
+}
+
+
+void debug(){
+    //测试插入分裂
+    BPlusTree bPlusTree(4);//最多四个关键字
+    bPlusTree.insert(100,10);
+    bPlusTree.insert(110,10);
+    bPlusTree.insert(120,10);
+    bPlusTree.insert(130,10);
+    bPlusTree.insert(140,10);
+    bPlusTree.insert(150,10);
+    bPlusTree.insert(160,10);
+    bPlusTree.level_print();
+    //测试删除combination
+
+//    bPlusTree.remove(104);
+//    bPlusTree.level_print();
+//    bPlusTree.remove(103);
+//    bPlusTree.level_print();//你居然一遍就ak了？
+//    bPlusTree.remove(105);
+//    bPlusTree.level_print();
+//    bPlusTree.remove(106);
+//    bPlusTree.level_print();
+}
+
 int main(){
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
-    //测试插入分裂
-    BPlusTree bPlusTree(5);//最多四个关键字
-    bPlusTree.insert(100,10);
-    bPlusTree.insert(101,10);
-    bPlusTree.insert(102,10);
-    bPlusTree.insert(103,10);
-    bPlusTree.insert(104,10);
-    bPlusTree.insert(105,10);
-    bPlusTree.insert(106,10);
-    bPlusTree.level_print();
-    //测试删除combination
-    bPlusTree.remove(104);
-    bPlusTree.remove(103);
+    benchmark();//
+//    debug();
     return 0;
 }

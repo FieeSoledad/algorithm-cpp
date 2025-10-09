@@ -32,11 +32,14 @@ public:
 
     virtual auto split()->shared_ptr<BaseNode> = 0;//说明是纯虚函数，派生类必须提供实现，否则不能被实例化
 
-    virtual void merge(shared_ptr<BaseNode> other) = 0;
+    virtual void merge(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> other) = 0;
 
-    auto insert(shared_ptr<BaseNode> root,int key,int value)->shared_ptr<BaseNode>;
+//    auto insert(shared_ptr<BaseNode> root,int key,int value)->shared_ptr<BaseNode>;
 
 //    virtual void update_after_split(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> left,shared_ptr<BaseNode> right) = 0;
+    virtual void borrow_from_left_sibling(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> lsibling) = 0;
+
+    virtual void borrow_from_right_sibling(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> rsibling) = 0;
 };
 
 
@@ -52,7 +55,11 @@ public:
 
     auto get_pointers()->vector<shared_ptr<BaseNode>>&;
 
-    void merge(shared_ptr<BaseNode> other);
+    void merge(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> other);
+
+    void borrow_from_left_sibling(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> lsibling);
+
+    void borrow_from_right_sibling(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> rsibling);
 };
 
 class LeafNode :public BaseNode,public enable_shared_from_this<LeafNode>{
@@ -66,7 +73,11 @@ public:
 //    void update_after_split(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> left,shared_ptr<BaseNode> right);
     auto get_data()->vector<int>&;
 
-    void merge(shared_ptr<BaseNode> other);
+    void merge(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> other);
+
+    void borrow_from_left_sibling(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> lsibling);
+
+    void borrow_from_right_sibling(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> rsibling);
 };
 
 class BPlusTree{
@@ -80,11 +91,12 @@ public:
     explicit BPlusTree(int degree);
     void insert(int key,int value);
     void remove(int key);
-    void query(int key);
+    void remove_recursively(shared_ptr<BaseNode> root,int key);
+        void query(int key);
 //    auto split_node(shared_ptr<BaseNode> parent,int pos,shared_ptr<BaseNode> child)->shared_ptr<BaseNode>;
     void insert_nofull(shared_ptr<BaseNode> root,int key,int value);
     void level_print();
+    auto index_(vector<int>& list,int target,int left,int right)->int;
 };
-
 
 #endif //ALGORITHM_PRACTICE_BPLUSTREE_H
