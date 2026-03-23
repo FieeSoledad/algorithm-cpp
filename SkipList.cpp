@@ -20,10 +20,10 @@ const int MAXN = 100000+1;
 int cnt = 0;
 int key[MAXN];
 int key_count[MAXN];
-int level_map[MAXN];
+int level_map[MAXN];// 记忆每个插入的节点的层高
 //维护指针
 int next_node[MAXN][MAXL+1];
-//维护指针跨越的元素个数，左开右闭
+//维护指针跨越的元素个数，左开右闭区间
 int len[MAXN][MAXL+1];
 
 //丢骰子决定层数
@@ -62,7 +62,7 @@ void add_count(int i,int level,int num){
     while(next_node[i][level]!=0 && key[next_node[i][level]]<num){//但是为什么是小于num，这是要维护前一个指针的跨越长度信息
         i = next_node[i][level];
     }
-    if(level==1){
+    if(level==1){// 添加词频
         key_count[next_node[i][level]]+=1;
     }else{
         add_count(i,level-1,num);
@@ -74,15 +74,15 @@ void add_count(int i,int level,int num){
 //插入空间编号为cnt的节点
 //难度在哪里？一个指针可能分裂成为两个指针，两指针跨越长度的修正需要递归获取
 //指针也可能不分裂
-//返回的是什么？属于开区间的数量
+//返回的是什么？在[1,200]插入160时，返回(1,160]的元素数量
 int add_node(int i,int level,int cnt){
     //确实是比较困难的诶，有尾递归的实现线索二叉树吗
     int right_cnt = 0;
-    while(next_node[i][level]!=0 && key[next_node[i][level]]<key[cnt]){
-        right_cnt+=len[i][level];
+    while(next_node[i][level] != 0 && key[next_node[i][level]] < key[cnt]){
+        right_cnt += len[i][level];
         i = next_node[i][level];
     }
-    if(level==1){//为什么到了level1就能确定了呢
+    if(level == 1){//为什么到了level1就能确定了呢
         next_node[cnt][level] = next_node[i][level];
         next_node[i][level] = cnt;
         //长度
@@ -134,7 +134,7 @@ void decline_count(int i,int level,int num){
     }else{
         decline_count(i,level-1,num);
     }
-    len[i][level]-=1;
+    len[i][level]-=1;// 可是，可能这个节点根本就没有对应的层次，但是没关系，我们不会访问到
 }
 
 //删除节点，所以这里涉及的是指针合并，只有删除节点
