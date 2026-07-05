@@ -5,6 +5,7 @@
 #include<queue>
 #include<set>
 #include<map>
+#include<string>
 using namespace std;
 //不同平台的实现
 typedef long long ll;
@@ -125,9 +126,42 @@ void mapDemo(){
     //cout<<mapper.end()<<endl;
 }
 
-//multi-set multi-map
-//set存储有序的重复的键
-//map适用于存储有重复键的一对多映射
+/**
+ * 字符串处理相关的API
+ * 重点：push_back和pop_back加入的是字符
+ * substr (start_index, len)，而非end_index
+ * insert (start_index, content)
+ * erase (start_index, len)
+ * find (char)
+ */
+void stringDemo(){
+    string s;
+    string s1 = "hello";
+    string s2("hello");
+    string s3(5,'a');
+    cout << s2.length()<<endl;
+    cout << s1[4] << endl;
+    s2.push_back('w');
+    cout << s2 << endl;
+    s2.pop_back();
+    cout << s1+s2 << endl;
+    cout <<"substr" << endl;
+    cout << s1.substr(0,2)<<endl;
+    int pos = s1.find('l');
+    cout << "l start at "<< pos << endl;
+    s1.insert(5, "world");
+    cout << "insert" << endl;
+    cout << s1 << endl;
+    cout << "erase" << endl;
+    cout << s1.erase(5,5) << endl;
+    // toupper tolower to_string
+}
+
+// multi-set multi-map
+// set存储有序的重复的键
+// map适用于存储有重复键的一对多映射
+// unordered_map and unordered_set
+// 字符串的相关API还是挺好用的
 int main() {
     //关闭cpp和c标准流的同步
     ios::sync_with_stdio(false);
@@ -140,6 +174,7 @@ int main() {
     //priorityQueueDemo();
     //setDemo();
     //mapDemo();
+    stringDemo();
     return 0;
 }
 
