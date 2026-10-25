@@ -6,6 +6,8 @@
 #include<set>
 #include<map>
 #include<string>
+#include <algorithm>
+
 using namespace std;
 //不同平台的实现
 typedef long long ll;
@@ -26,6 +28,8 @@ void vectorDemo(){
     for(it = v3.begin();it!=v3.end();it++){
         cout<<*it<<endl;
     }
+    std::reverse(v3.begin(), v3.end());// 翻转某一段落
+    std::swap(v3[0], v3[1]);// 交换2个元素
 }
 
 //这个跟Java中不太一样，返回值为true，则将第一个元素放在前面

@@ -2,8 +2,8 @@
 // Created by hsl19 on 2026/7/9.
 //
 #include <iostream>
+#include <type_traits>
 using namespace std;
-
 
 template<typename T>
 T max_(T a, T b){
@@ -24,12 +24,14 @@ class vector_{
 // 模板模板参数
 
 
-// typename... Args，这种是变长模板参数
 
 
 
+
+
+
+// --- 关于完美转发以及四种引用折叠 ---
 // 什么是完美转发
-//
 void func(int& x){
     std::cout << "lvalue" << std::endl;
 }
@@ -55,6 +57,89 @@ void test_remain_value_category(){
     wrapper(20);
 }
 
+
+
+
+
+// --- 类型萃取 TMP 元函数 ---
+// 本质上类型萃取就是TMP的元函数，是一个特殊的结构体
+// 类型萃取，type_traits，是一种编译时技术，用于在编译期间获取和操作类型的信息
+// cpp引入了<type_traits>头文件，包含许多内置类型的萃取
+// std::is_integral<T>,判断T是否为整数类型
+// std::is_floating_point<T>，判断类型是否为浮点数类型
+// std::is_pointer<T>，判断类型是否为指针类型
+// std::is_reference<T>，判断是否为引用类型
+// std::is_const<T>，判断是否为const类型
+// std::is_same<T,U>，判断T和U是否相同
+
+// true_type以及 false_type
+// 1. 基础模板：将任意整数常量包装为一个类型
+//template <typename T, T v>
+//struct integral_constant {
+//    static constexpr T value = v;
+//    using value_type = T;
+//    using type = integral_constant;
+//
+//    // 隐式转换为原始数据类型
+//    constexpr operator value_type() const noexcept { return value; }
+//    // 重载调用运算符，方便像函数一样调用：std::true_type{}() -> true
+//    constexpr value_type operator()() const noexcept { return value; }
+//};
+//
+// 2. 特化定义：bool 常量类型的别名
+//using true_type  = integral_constant<bool, true>;
+//using false_type = integral_constant<bool, false>;
+
+template <typename T>
+struct is_integral_helper : std::false_type {};
+
+template <>
+struct is_integral_helper<bool> : std::true_type {};
+
+template <>
+struct is_integral_helper<char> : std::true_type {};
+
+template <>
+struct is_integral_helper<short> : std::true_type {};
+
+template <>
+struct is_integral_helper<unsigned short> : std::true_type {};
+
+template <>
+struct is_integral_helper<int> : std::true_type {};
+
+// 这里定义is_integral 为is_integral_helper的一个包装，首先移除给定类型的const和volatile限定符
+template <typename T>
+struct is_integral : is_integral_helper<typename std::remove_cv<T>::type> {};
+
+// 应用
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value, T>::type
+foo(T t) {
+    std::cout << "foo() called with an integral type: " << t << std::endl;
+    return t;
+}
+
+// 如果为false相当于不存在
+template <typename T>
+typename std::enable_if<std::is_floating_point<T>::value, T>::type
+foo(T t) {
+    std::cout << "foo() called with a floating point type: " << t << std::endl;
+    return t;
+}
+
+
+
+
+// 变长的模板参数，这是cpp11引入的
+// 变长模板参数的应用？
+// 类型安全的格式化与日志系统，
+// 变长模板参数的解包？
+template<typename... Args>
+void func(Args... args){
+    std::cout << sizeof...(args) << "\n";
+}
+
 /**
  *
  * 系统学习cpp的模板
@@ -77,12 +162,12 @@ void test_remain_value_category(){
  * A：
  * 引用折叠不是为了创造一种新的引用类型，而是为了让模板推导产生的引用的引用有一个合法的、符合直觉的结果
  * const左值可以绑定一个临时右值
- *
  * 引用折叠是为了避免丢失左值和右值的信息，决定拷贝语义
  *
  *
- * 模板元编程
  *
+ *
+ * 什么是concept lifting？
  *
  *
  *
